@@ -1,5 +1,5 @@
 
-# Learnix
+# Learnix - LLM+RAG powered Education agent
 
 Welcome to Learnix - an educational platform with integrated AI Agent called Lumi.
 
