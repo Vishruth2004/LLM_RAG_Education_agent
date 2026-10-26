@@ -1,5 +1,26 @@
+# Virtual environments
 .venv/
+llm_rag/
+venv/
+env/
+
+# Python cache
 backend/application/__pycache__/
-__pycache__
+__pycache__/
+*.pyc
+*.pyo
+
+# Secrets — NEVER commit this
+.env
+
+# SQLite database (Render will recreate it on boot)
+backend/instance/
+
+# IDE / OS
 .DS_Store
 .pytest_cache
+.idea/
+*.swp
+
+# Documentation zip (large, not needed for deployment)
+Documentation.zip

@@ -92,6 +92,18 @@ export default {
                         <div class="spinner" style="display: inline-block; border: 4px solid #f3f3f3; border-top: 4px solid #015668; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
                         <p style="margin-top: 15px; color: #015668; font-weight: 500;">Loading questions...</p>
                     </div>
+
+                    <!-- Demo Mode notice when AI is unavailable -->
+                    <div v-if="aiUnavailable && !mcqsLoading" style="text-align: center; margin: 40px auto; max-width: 500px; padding: 24px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 12px;">
+                        <div style="font-size: 32px; margin-bottom: 12px;">🚧</div>
+                        <h5 style="color: #e65100; margin-bottom: 8px;">Demo Mode — AI Disabled</h5>
+                        <p style="color: #555; font-size: 14px; margin: 0;">
+                            The AI-powered mock questions and Lumi chatbot require the full ML stack (PyTorch, FAISS, sentence-transformers) 
+                            and are not available in this hosted demo due to resource constraints.<br><br>
+                            <strong>The complete version runs locally with all features enabled.</strong>
+                        </p>
+                    </div>
+
                     
                     <div v-else-if="mcqs.length > 0" class="questions-container" style="margin-bottom: 30px;">
                         <div v-for="(question, index) in mcqs" :key="index" class="question-block" style="background-color: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 25px;">
@@ -282,6 +294,7 @@ export default {
             results: [],
             showChatbot: false, // Toggle Ask Lumi
             query: "",
+            aiUnavailable: false, // Set to true when backend reports AI features unavailable
             isLoadingResponse: false, // New flag for chat loading indicator
             chatMessages: [
                 { sender: 'lumi', text: 'Hi there! I\'m Lumi, your learning assistant. How can I help you today?' }
@@ -417,7 +430,13 @@ export default {
             
             if (res.ok) {
                 const data = await res.json();
-                this.mcqs = data.mcqs;
+                // Check if backend returned an AI-unavailable error
+                if (data.mcqs && data.mcqs.error) {
+                    this.aiUnavailable = true;
+                    this.mcqs = [];
+                } else {
+                    this.mcqs = data.mcqs;
+                }
             }
             
             // Hide loading indicator
@@ -515,23 +534,32 @@ export default {
                 if (res.ok) {
                     const data = await res.json();
                     
-                    // Add AI's response to chat display
-                    const aiResponse = data.response || "I'm sorry, I couldn't process your request.";
-                    this.chatMessages.push({
-                        sender: 'lumi',
-                        text: aiResponse
-                    });
-                    
-                    // Update chat history for context in future requests
-                    this.chatHistory.push({
-                        sender: 'user',
-                        text: currentQuery
-                    });
-                    
-                    this.chatHistory.push({
-                        sender: 'assistant',
-                        text: aiResponse
-                    });
+                    // Check if AI features are unavailable in this deployment
+                    if (data.error && data.error.includes('not available')) {
+                        this.aiUnavailable = true;
+                        this.chatMessages.push({
+                            sender: 'lumi',
+                            text: '🚧 The AI assistant is not available in this demo deployment. The full version with Lumi runs locally with the complete ML stack.'
+                        });
+                    } else {
+                        // Add AI's response to chat display
+                        const aiResponse = data.response || "I'm sorry, I couldn't process your request.";
+                        this.chatMessages.push({
+                            sender: 'lumi',
+                            text: aiResponse
+                        });
+                        
+                        // Update chat history for context in future requests
+                        this.chatHistory.push({
+                            sender: 'user',
+                            text: currentQuery
+                        });
+                        
+                        this.chatHistory.push({
+                            sender: 'assistant',
+                            text: aiResponse
+                        });
+                    }
                 } else {
                     // Handle error
                     this.chatMessages.push({

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: llm-rag-education-agent
+    runtime: python
+    buildCommand: pip install -r requirements-prod.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --chdir backend
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false          # You'll paste this in the Render dashboard
+      - key: DAILY_CHAT_LIMIT
+        value: "10"
+      - key: DAILY_MOCK_LIMIT
+        value: "3"
+      - key: DAILY_GLOBAL_LIMIT
+        value: "20"
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.12.0"

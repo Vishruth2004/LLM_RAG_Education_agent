@@ -24,8 +24,12 @@ def load_faiss_for_week(week):
         print(f"FAISS index for Week {week} not found.")
         return None
 
-    with open(faiss_index_path, "rb") as f:
-        faiss_cache[week] = pickle.load(f)
+    try:
+        with open(faiss_index_path, "rb") as f:
+            faiss_cache[week] = pickle.load(f)
+    except Exception as e:
+        print(f"Warning: Could not load FAISS index for week {week}: {e}")
+        return None
         
     return faiss_cache[week]    
 
