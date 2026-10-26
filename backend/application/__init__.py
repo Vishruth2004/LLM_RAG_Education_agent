@@ -122,6 +122,7 @@ with app.app_context():
             return idx if idx is not None else default
     
     faiss_store = DynamicFaissStore()
+    faiss_cache = faiss_store
 
 
 
