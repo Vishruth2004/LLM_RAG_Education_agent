@@ -98,9 +98,8 @@ export default {
                         <div style="font-size: 32px; margin-bottom: 12px;">🚧</div>
                         <h5 style="color: #e65100; margin-bottom: 8px;">Demo Mode — AI Disabled</h5>
                         <p style="color: #555; font-size: 14px; margin: 0;">
-                            The AI-powered mock questions and Lumi chatbot require the full ML stack (PyTorch, FAISS, sentence-transformers) 
-                            and are not available in this hosted demo due to resource constraints.<br><br>
-                            <strong>The complete version runs locally with all features enabled.</strong>
+                            The AI-powered mock questions are not available in this hosted demo due to some constraints.<br><br>
+                            <strong>The complete version runs locally.</strong>
                         </p>
                     </div>
 
