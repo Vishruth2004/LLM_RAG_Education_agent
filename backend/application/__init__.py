@@ -5,6 +5,7 @@ from application.config import Config
 from flask_security import SQLAlchemyUserDatastore
 import os
 import pickle
+from langchain_community.embeddings import FakeEmbeddings
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 template_folder = os.path.join(base_dir, '..','..','frontend', 'templates')
@@ -15,6 +16,12 @@ import gc
 
 _current_loaded_week = None
 _current_faiss_index = None
+
+class DummyUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if name == "HuggingFaceEmbeddings":
+            return lambda *args, **kwargs: FakeEmbeddings(size=384)
+        return super().find_class(module, name)
 
 def load_faiss_for_week(week):
     global _current_loaded_week, _current_faiss_index
@@ -42,7 +49,7 @@ def load_faiss_for_week(week):
     # 4. Load only the requested index into memory
     try:
         with open(faiss_index_path, "rb") as f:
-            _current_faiss_index = pickle.load(f)
+            _current_faiss_index = DummyUnpickler(f).load()
             _current_loaded_week = week
     except Exception as e:
         print(f"Warning: Could not load FAISS index for week {week}: {e}")
