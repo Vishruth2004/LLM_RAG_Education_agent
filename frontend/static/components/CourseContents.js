@@ -408,6 +408,7 @@ export default {
             this.selectedMock = week
 
             // Clear previous mock selection
+            this.aiUnavailable = false;
             this.userAnswers = [];
             this.showResults = false;
             this.results = [];

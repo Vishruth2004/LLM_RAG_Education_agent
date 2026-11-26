@@ -5,57 +5,39 @@ from application.config import Config
 from flask_security import SQLAlchemyUserDatastore
 import os
 import pickle
-from langchain_community.embeddings import FakeEmbeddings
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 template_folder = os.path.join(base_dir, '..','..','frontend', 'templates')
 static_folder = os.path.join(base_dir,'..','..','frontend', 'static')
 
 
-import gc
+faiss_cache = {}
 
-_current_loaded_week = None
-_current_faiss_index = None
-
-class DummyUnpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        if name == "HuggingFaceEmbeddings":
-            return lambda *args, **kwargs: FakeEmbeddings(size=384)
-        return super().find_class(module, name)
+try:
+    import langchain_huggingface  # noqa: F401
+    _ML_STACK_AVAILABLE = True
+except ImportError:
+    _ML_STACK_AVAILABLE = False
 
 def load_faiss_for_week(week):
-    global _current_loaded_week, _current_faiss_index
-
-    # 1. If this exact week is already in RAM, reuse it immediately
-    if _current_loaded_week == week and _current_faiss_index is not None:
-        return _current_faiss_index
-
-    # 2. Free previous index from memory and force garbage collection
-    _current_faiss_index = None
-    _current_loaded_week = None
-    gc.collect()
-
-    # 3. Locate the week-specific file
-    faiss_folder = os.path.join(base_dir, '..', 'FAISS')
+    if week in faiss_cache:
+        return faiss_cache[week]
+    
+    faiss_folder = os.path.join(base_dir,'..', 'FAISS')
     faiss_index_path = os.path.join(faiss_folder, f"faiss_index_week{week}.pkl")
 
-    # Fallback to combined index if the week-specific file doesn't exist
     if not os.path.exists(faiss_index_path):
-        faiss_index_path = os.path.join(faiss_folder, "faiss_index_all_weeks.pkl")
-        if not os.path.exists(faiss_index_path):
-            print(f"FAISS index for Week {week} not found.")
-            return None
+        print(f"FAISS index for Week {week} not found.")
+        return None
 
-    # 4. Load only the requested index into memory
     try:
         with open(faiss_index_path, "rb") as f:
-            _current_faiss_index = DummyUnpickler(f).load()
-            _current_loaded_week = week
+            faiss_cache[week] = pickle.load(f)
     except Exception as e:
         print(f"Warning: Could not load FAISS index for week {week}: {e}")
         return None
         
-    return _current_faiss_index  
+    return faiss_cache[week]    
 
 app = Flask(__name__,template_folder=template_folder,static_folder=static_folder)
 app.config.from_object(Config)
@@ -120,16 +102,9 @@ with app.app_context():
 
     db.session.commit()
 
-    weeks = {lecture.weekNumber for lecture in Lecture.query.distinct(Lecture.weekNumber).all()}
-    class DynamicFaissStore:
-        def __getitem__(self, week):
-            return load_faiss_for_week(week)
-        def get(self, week, default=None):
-            idx = load_faiss_for_week(week)
-            return idx if idx is not None else default
-    
-    faiss_store = DynamicFaissStore()
-    faiss_cache = faiss_store
+    if _ML_STACK_AVAILABLE:
+        weeks = {lecture.weekNumber for lecture in Lecture.query.distinct(Lecture.weekNumber).all()}
+        faiss_store = {week: load_faiss_for_week(week) for week in weeks}
 
 
 

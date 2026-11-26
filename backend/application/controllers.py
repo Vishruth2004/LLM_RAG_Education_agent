@@ -15,6 +15,14 @@ try:
 except ImportError:
     faiss = None
 
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+    EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    HuggingFaceEmbeddings = None
+    EMBEDDINGS_AVAILABLE = False
+    print("Warning: langchain_huggingface not available. Mock question embeddings disabled.")
+
 # ---------------------------------------------------------------------------
 # Load environment variables BEFORE initialising the Gemini client
 # ---------------------------------------------------------------------------
@@ -316,31 +324,56 @@ MCQ_SCHEMA = {
 
 
 class MockQuestions(Resource):
+    def __init__(self):
+        if EMBEDDINGS_AVAILABLE and HuggingFaceEmbeddings is not None:
+            self.embedding_function = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            )
+        else:
+            self.embedding_function = None
 
     def _retrieve_context(self, week):
+        """Retrieve course context for the given week.
+
+        Primary: uses the full FAISS vector store when the local ML stack
+        (PyTorch + HuggingFaceEmbeddings + FAISS) is available.
+        Fallback: loads pre-extracted lightweight JSON chunks from
+        backend/context/week{week}.json so Mock AI runs within Render's
+        512 MB free-tier RAM limit without loading ~90 MB+ pickled models.
+        """
         faiss_vector_store = faiss_cache.get(week)
-        if not faiss_vector_store:
-            return "No data available for this week."
-        return "\n".join(
-            doc.page_content for doc in faiss_vector_store.docstore._dict.values()
-        )
+        if faiss_vector_store is not None:
+            return "\n".join(
+                doc.page_content for doc in faiss_vector_store.docstore._dict.values()
+            )
+
+        context_path = os.path.join(base_dir, '..', 'context', f'week{week}.json')
+        if os.path.exists(context_path):
+            with open(context_path, 'r', encoding='utf-8') as f:
+                chunks = json.load(f)
+            if chunks:
+                return "\n".join(chunks)
+
+        return "No data available for this week."
 
     def _generate_rag_prompt(self, context, num_questions):
         return f"""
-        You are Lumi, an AI assistant for the IIT Madras Business Analytics course.
-        Generate {num_questions} different, random multiple-choice questions (MCQ) from the context below.
-        Format output as a JSON list where each MCQ has:
-        - "question_statement": the question text
-        - "option_a", "option_b", "option_c", "option_d": the answer choices
-        - "correct_answer": the correct option letter ("A", "B", "C", or "D")
+You are Lumi, an AI assistant for the IIT Madras Business Analytics course.
+Generate {num_questions} different, random multiple-choice questions (MCQ) from the context below.
 
-        CONTEXT: '{context}'
-        """
+Format output as a JSON list where each MCQ has:
+- "question_statement": the question text
+- "option_a", "option_b", "option_c", "option_d": the answer choices
+- "correct_answer": the correct option letter ("A", "B", "C", or "D")
+
+CONTEXT: '{context}'
+"""
 
     def generate(self, week, num_questions):
         context = self._retrieve_context(week)
         if context == "No data available for this week.":
             return context
+
         prompt = self._generate_rag_prompt(context, num_questions)
         try:
             response = gemini_client.models.generate_content(
@@ -354,7 +387,6 @@ class MockQuestions(Resource):
             return json.loads(response.text)
         except Exception as e:
             return {"error": str(e)}
-
 
     def get(self):
         try:
