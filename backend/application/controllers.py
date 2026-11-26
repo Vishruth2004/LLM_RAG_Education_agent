@@ -15,14 +15,6 @@ try:
 except ImportError:
     faiss = None
 
-try:
-    from langchain_huggingface import HuggingFaceEmbeddings
-    EMBEDDINGS_AVAILABLE = True
-except ImportError:
-    HuggingFaceEmbeddings = None
-    EMBEDDINGS_AVAILABLE = False
-    print("Warning: langchain_huggingface not available. Mock question embeddings disabled.")
-
 # ---------------------------------------------------------------------------
 # Load environment variables BEFORE initialising the Gemini client
 # ---------------------------------------------------------------------------
@@ -324,13 +316,6 @@ MCQ_SCHEMA = {
 
 
 class MockQuestions(Resource):
-    def __init__(self):
-        if EMBEDDINGS_AVAILABLE and HuggingFaceEmbeddings is not None:
-            self.embedding_function = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
-            )
-        else:
-            self.embedding_function = None
 
     def _retrieve_context(self, week):
         faiss_vector_store = faiss_cache.get(week)
