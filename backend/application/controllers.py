@@ -342,24 +342,20 @@ class MockQuestions(Resource):
 
     def _generate_rag_prompt(self, context, num_questions):
         return f"""
-You are Lumi, an AI assistant for the IIT Madras Business Analytics course.
-Generate {num_questions} different, random multiple-choice questions (MCQ) from the context below.
+        You are Lumi, an AI assistant for the IIT Madras Business Analytics course.
+        Generate {num_questions} different, random multiple-choice questions (MCQ) from the context below.
+        Format output as a JSON list where each MCQ has:
+        - "question_statement": the question text
+        - "option_a", "option_b", "option_c", "option_d": the answer choices
+        - "correct_answer": the correct option letter ("A", "B", "C", or "D")
 
-Format output as a JSON list where each MCQ has:
-- "question_statement": the question text
-- "option_a", "option_b", "option_c", "option_d": the answer choices
-- "correct_answer": the correct option letter ("A", "B", "C", or "D")
-
-CONTEXT: '{context}'
-"""
+        CONTEXT: '{context}'
+        """
 
     def generate(self, week, num_questions):
-        if not EMBEDDINGS_AVAILABLE:
-            return {"error": "AI features are not available in this demo deployment."}
         context = self._retrieve_context(week)
         if context == "No data available for this week.":
             return context
-
         prompt = self._generate_rag_prompt(context, num_questions)
         try:
             response = gemini_client.models.generate_content(
@@ -373,6 +369,7 @@ CONTEXT: '{context}'
             return json.loads(response.text)
         except Exception as e:
             return {"error": str(e)}
+
 
     def get(self):
         try:
